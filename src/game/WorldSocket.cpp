@@ -834,7 +834,7 @@ int WorldSocket::HandleAuthSession (WorldPacket& recvPacket)
  if(accAccess){
  Field* fieldsAcc = accAccess->Fetch();
  uint32 accessRealm = fieldsAcc[0].GetInt32();
- uint32 realmID = sConfig.GetIntDefault("RealmID", 0)
+ uint32 realmID = sConfig.GetIntDefault("RealmID", 0);
  if(realmID != accessRealm){
  delete accAccess;
  return -1;
