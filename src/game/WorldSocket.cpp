@@ -30,6 +30,8 @@
 #include "WorldSocket.h"
 #include "Common.h"
 
+#include "Config/ConfigEnv.h"
+
 #include "Util.h"
 #include "World.h"
 #include "WorldPacket.h"
@@ -825,7 +827,21 @@ int WorldSocket::HandleAuthSession (WorldPacket& recvPacket)
     id = fields[0].GetUInt32 ();
     security = fields[1].GetUInt16 ();
     if(security > SEC_ADMINISTRATOR)                        // prevent invalid security settings in DB
-        security = SEC_ADMINISTRATOR;
+        security = SEC_ADMINISTRATOR; 
+
+ // CHECK ACCESS TO REALM - FOR ONLY TEST ACCOUNT
+ QueryResult *accAccess = loginDatabase.PQuery("SELECT realm_id FROM account_access WHERE acc_id = '%d'", id);
+ if(accAccess){
+ Field* fieldsAcc = accAccess->Fetch();
+ uint32 accessRealm = fieldsAcc[0].GetInt32();
+ uint32 realmID = sConfig.GetIntDefault("RealmID", 0)
+ if(realmID != accessRealm){
+ delete accAccess;
+ return -1;
+ }
+ delete accAccess;
+ }
+
 
     K.SetHexStr (fields[2].GetString ());
 
