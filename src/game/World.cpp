@@ -719,6 +719,8 @@ void World::LoadConfigSettings(bool reload)
         m_configs[CONFIG_MAX_PLAYER_LEVEL] = MAX_LEVEL;
     }
 
+    m_configs[CONFIG_MIN_DUALSPEC_LEVEL] = sConfig.GetIntDefault("MinDualSpecLevel", 40);
+
     m_configs[CONFIG_START_PLAYER_LEVEL] = sConfig.GetIntDefault("StartPlayerLevel", 1);
     if(m_configs[CONFIG_START_PLAYER_LEVEL] < 1)
     {
@@ -986,7 +988,7 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_ARENA_SEASON_ID]                           = sConfig.GetIntDefault ("Arena.ArenaSeason.ID", 1);
     m_configs[CONFIG_ARENA_SEASON_IN_PROGRESS]                  = sConfig.GetBoolDefault("Arena.ArenaSeason.InProgress", true);
 
-    m_configs[CONFIG_OFFHAND_CHECK_AT_TALENTS_RESET] = sConfig.GetBoolDefault("OffhandCheckAtTalentsReset", false);
+    m_configs[CONFIG_OFFHAND_CHECK_AT_SPELL_UNLEARN] = sConfig.GetBoolDefault("OffhandCheckAtSpellUnlearn", false);
 
     if(int clientCacheId = sConfig.GetIntDefault("ClientCacheVersion", 0))
     {
@@ -1453,6 +1455,11 @@ void World::SetInitialWorldSettings()
 
     sLog.outString( "Loading Scripts text locales..." );    // must be after Load*Scripts calls
     sObjectMgr.LoadDbScriptStrings();
+
+    sLog.outString( "Loading VehicleData..." );
+    sObjectMgr.LoadVehicleData();
+    sLog.outString( "Loading VehicleSeatData..." );
+    sObjectMgr.LoadVehicleSeatData();
 
     sLog.outString( "Loading CreatureEventAI Texts...");
     sEventAIMgr.LoadCreatureEventAI_Texts(false);       // false, will checked in LoadCreatureEventAI_Scripts

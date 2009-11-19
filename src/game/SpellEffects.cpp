@@ -54,6 +54,7 @@
 #include "ScriptCalls.h"
 #include "SkillDiscovery.h"
 #include "Formulas.h"
+#include "Vehicle.h"
 
 pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
 {
@@ -144,7 +145,7 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectStuck,                                    // 84 SPELL_EFFECT_STUCK
     &Spell::EffectSummonPlayer,                             // 85 SPELL_EFFECT_SUMMON_PLAYER
     &Spell::EffectActivateObject,                           // 86 SPELL_EFFECT_ACTIVATE_OBJECT
-    &Spell::EffectUnused,                                   // 87 SPELL_EFFECT_WMO_DAMAGE
+    &Spell::EffectDamageBuilding,                           // 87 SPELL_EFFECT_WMO_DAMAGE
     &Spell::EffectUnused,                                   // 88 SPELL_EFFECT_WMO_REPAIR
     &Spell::EffectUnused,                                   // 89 SPELL_EFFECT_WMO_CHANGE
     &Spell::EffectKillCreditPersonal,                       // 90 SPELL_EFFECT_KILL_CREDIT              Kill credit but only for single person
@@ -218,8 +219,8 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectMilling,                                  //158 SPELL_EFFECT_MILLING                  milling
     &Spell::EffectRenamePet,                                //159 SPELL_EFFECT_ALLOW_RENAME_PET         allow rename pet once again
     &Spell::EffectNULL,                                     //160 SPELL_EFFECT_160                      unused
-    &Spell::EffectNULL,                                     //161 SPELL_EFFECT_TALENT_SPEC_COUNT        second talent spec (learn/revert)
-    &Spell::EffectNULL,                                     //162 SPELL_EFFECT_TALENT_SPEC_SELECT       activate primary/secondary spec
+    &Spell::EffectSpecCount,                                //161 SPELL_EFFECT_TALENT_SPEC_COUNT        second talent spec (learn/revert)
+    &Spell::EffectActivateSpec,                             //162 SPELL_EFFECT_TALENT_SPEC_SELECT       activate primary/secondary spec
 };
 
 void Spell::EffectNULL(uint32 /*i*/)
@@ -3622,7 +3623,7 @@ void Spell::EffectSummonType(uint32 i)
                 EffectSummonTotem(i);
             else
                 EffectSummonGuardian(i);
-            break;
+            return;
         case SUMMON_TYPE_WILD:
         case SUMMON_TYPE_WILD2:
         case SUMMON_TYPE_QUEST_WILD:
@@ -3630,21 +3631,21 @@ void Spell::EffectSummonType(uint32 i)
         case SUMMON_TYPE_JEEVES:
         case SUMMON_TYPE_SCRAPBOT:
             EffectSummonWild(i);
-            break;
+            return;
         case SUMMON_TYPE_DEMON:
         case SUMMON_TYPE_INFERNO:
             EffectSummonDemon(i);
-            break;
+            return;
         case SUMMON_TYPE_SUMMON:
         case SUMMON_TYPE_ELEMENTAL:
             EffectSummon(i);
-            break;
+            return;
         case SUMMON_TYPE_CRITTER:
         case SUMMON_TYPE_CRITTER2:
         case SUMMON_TYPE_CRITTER3:
         case SUMMON_TYPE_QUEST_CRITTER:
             EffectSummonCritter(i);
-            break;
+            return;
         case SUMMON_TYPE_TOTEM_SLOT1:
         case SUMMON_TYPE_TOTEM_SLOT2:
         case SUMMON_TYPE_TOTEM_SLOT3:
@@ -3652,7 +3653,22 @@ void Spell::EffectSummonType(uint32 i)
         case SUMMON_TYPE_TOTEM:
         case SUMMON_TYPE_TOTEM2:
             EffectSummonTotem(i);
-            break;
+           return;
+        case SUMMON_TYPE_VEHICLE1:
+        case SUMMON_TYPE_VEHICLE2:
+        case SUMMON_TYPE_VEHICLE3:
+        case SUMMON_TYPE_VEHICLE4:
+        case SUMMON_TYPE_VEHICLE5:
+        case SUMMON_TYPE_VEHICLE6:
+        case SUMMON_TYPE_VEHICLE7:
+        case SUMMON_TYPE_VEHICLE8:
+        case SUMMON_TYPE_VEHICLE9:
+        case SUMMON_TYPE_VEHICLE10:
+        case SUMMON_TYPE_VEHICLE11:
+        case SUMMON_TYPE_VEHICLE12:
+        case SUMMON_TYPE_VEHICLE13:
+             EffectSummonVehicle(i);
+             return;
         case SUMMON_TYPE_UNKNOWN1:
         case SUMMON_TYPE_UNKNOWN2:
         case SUMMON_TYPE_UNKNOWN3:
@@ -3663,6 +3679,57 @@ void Spell::EffectSummonType(uint32 i)
             sLog.outError("EffectSummonType: Unhandled summon type %u", m_spellInfo->EffectMiscValueB[i]);
             break;
     }
+
+    SummonPropertiesEntry const *properties = sSummonPropertiesStore.LookupEntry(m_spellInfo->EffectMiscValueB[i]);
+    if(!properties)
+    {
+        sLog.outError("EffectSummonType: Unknow summon properties %u", m_spellInfo->EffectMiscValueB[i]);
+        return;
+    }
+
+    // more generic way, but incorrect in some cases
+    switch(properties->Group)
+    {
+        case SUMMON_CATEGORY_WILD:
+            EffectSummonWild(i);
+            break;
+        case SUMMON_CATEGORY_PET:
+            switch(properties->Type)
+            {
+                case SUMMON_MASK_SUMMON:
+                    EffectSummon(i);
+                    break;
+                default:
+                    EffectSummonGuardian(i);
+                    break;
+            }
+            break;
+        case SUMMON_CATEGORY_ALLY:
+        case SUMMON_CATEGORY_POSSESSED:
+            switch(properties->Type)
+            {
+                case SUMMON_MASK_NONE:
+                    EffectSummonWild(i);
+                    break;
+                case SUMMON_MASK_TOTEM:
+                    EffectSummonTotem(i);
+                    break;
+                case (SUMMON_MASK_SUMMON | SUMMON_MASK_TOTEM):
+                    EffectSummonCritter(i);
+                    break;
+                default:
+                    EffectSummonGuardian(i);
+                    break;
+            }
+            break;
+        case SUMMON_CATEGORY_VEHICLE:
+            // probably more types of vehicles here
+            EffectSummonVehicle(i);
+            break;
+        default:
+            break;
+   }
+
 }
 
 void Spell::EffectSummon(uint32 i)
@@ -7421,6 +7488,54 @@ void Spell::EffectRenamePet(uint32 /*eff_idx*/)
     unitTarget->SetByteValue(UNIT_FIELD_BYTES_2, 2, UNIT_RENAME_ALLOWED);
 }
 
+void Spell::EffectSummonVehicle(uint32 i)
+{
+    uint32 creature_entry = m_spellInfo->EffectMiscValue[i];
+    if(!creature_entry)
+        return;
+
+    float px, py, pz;
+    // If dest location if present
+    if (m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
+    {
+        // Summon unit in dest location
+        px = m_targets.m_destX;
+        py = m_targets.m_destY;
+        pz = m_targets.m_destZ;
+    }
+    // Summon if dest location not present near caster
+    else
+        m_caster->GetClosePoint(px,py,pz,3.0f);
+
+    Vehicle *v = m_caster->SummonVehicle(creature_entry, px, py, pz, m_caster->GetOrientation());
+    if(!v)
+        return;
+
+    v->SetUInt32Value(UNIT_CREATED_BY_SPELL, m_spellInfo->Id);
+    v->SetCreatorGUID(m_caster->GetGUID());
+
+    if(damage)
+    {
+        m_caster->CastSpell(v, damage, true);
+        m_caster->EnterVehicle(v, 0);
+    }
+    int32 duration = GetSpellMaxDuration(m_spellInfo);
+    if(duration > 0)
+        v->SetSpawnDuration(duration);
+}
+
+void Spell::EffectDamageBuilding(uint32 i)
+{
+    if(!gameObjTarget)
+        return;
+
+    if(gameObjTarget->GetGoType() != GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
+        return;
+
+    // NOTE : this can be increased by scaling stat system in vehicles
+    gameObjTarget->DealSiegeDamage(damage);
+}
+
 void Spell::EffectPlayMusic(uint32 i)
 {
     if(!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
@@ -7437,4 +7552,20 @@ void Spell::EffectPlayMusic(uint32 i)
     WorldPacket data(SMSG_PLAY_MUSIC, 4);
     data << uint32(soundid);
     ((Player*)unitTarget)->GetSession()->SendPacket(&data);
+}
+
+void Spell::EffectSpecCount(uint32 /*eff_idx*/)
+{
+    if(!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
+        return;
+
+    ((Player*)unitTarget)->UpdateSpecCount(damage);
+}
+
+void Spell::EffectActivateSpec(uint32 /*eff_idx*/)
+{
+    if(!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
+        return;
+
+    ((Player*)unitTarget)->ActivateSpec(damage-1);  // damage is 1 or 2, spec is 0 or 1
 }
