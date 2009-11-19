@@ -784,6 +784,10 @@ void Spell::prepareDataForTriggerSystem()
                 if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0009800000800000))
                     m_canTrigger = true;
                 break;
+				 case SPELLFAMILY_DRUID:
+            if (m_spellInfo->Id == 16857)
+                AddTriggeredSpell(60089);
+                break;
             case SPELLFAMILY_ROGUE:   // For poisons need do it
                 if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x000000101001E000))
                     m_canTrigger = true;
