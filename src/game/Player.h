@@ -300,6 +300,7 @@ struct Runes
 {
     RuneInfo runes[MAX_RUNES];
     uint8 runeState;                                        // mask of available runes
+    uint8 needConvert;                                      // mask of runes that need to be converted
 
     void SetRuneState(uint8 index, bool set = true)
     {
@@ -307,6 +308,17 @@ struct Runes
             runeState |= (1 << index);                      // usable
         else
             runeState &= ~(1 << index);                     // on cooldown
+    }
+
+    bool isRuneNeedsConvert(uint8 index)
+    {
+        if (!needConvert)
+            return false;
+
+        if (needConvert & (1 << index))
+            return true;
+        else
+            return false;
     }
 };
 
@@ -2278,6 +2290,13 @@ class MANGOS_DLL_SPEC Player : public Unit
         RuneType GetBaseRune(uint8 index) const { return RuneType(m_runes->runes[index].BaseRune); }
         RuneType GetCurrentRune(uint8 index) const { return RuneType(m_runes->runes[index].CurrentRune); }
         uint16 GetRuneCooldown(uint8 index) const { return m_runes->runes[index].Cooldown; }
+        void SetNeedConvertRune(uint8 index, bool convert)
+        {
+            if (convert)
+                m_runes->needConvert |= (1 << index);                      // need convert
+            else
+                m_runes->needConvert &= ~(1 << index);                     // removed from convert   
+        }
         bool IsBaseRuneSlotsOnCooldown(RuneType runeType) const;
         void SetBaseRune(uint8 index, RuneType baseRune) { m_runes->runes[index].BaseRune = baseRune; }
         void SetCurrentRune(uint8 index, RuneType currentRune) { m_runes->runes[index].CurrentRune = currentRune; }

@@ -6881,6 +6881,58 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 }
                 break;
             }
+            // Blood of the North and Reaping
+            if (dummySpell->SpellIconID == 3041 || dummySpell->SpellIconID == 22)
+            {
+                if(GetTypeId()!=TYPEID_PLAYER)
+                    return false;
+                
+                for (uint32 i = 0; i < MAX_RUNES; ++i)
+                {
+                    if (((Player*)this)->GetCurrentRune(i) == RUNE_BLOOD)
+                    {
+                        if(!((Player*)this)->GetRuneCooldown(i))
+                            ((Player*)this)->ConvertRune(i, RUNE_DEATH);
+                        else
+                        {
+                            // search for another rune that might be available
+                            for (uint32 iter = i; iter < MAX_RUNES; ++iter)
+                            {
+                                if(((Player*)this)->GetCurrentRune(iter) == RUNE_BLOOD && !((Player*)this)->GetRuneCooldown(iter))
+                                {
+                                    ((Player*)this)->ConvertRune(iter, RUNE_DEATH);
+                                    return true;
+                                }
+                            }
+                            ((Player*)this)->SetNeedConvertRune(i, true);
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+            // Death Rune Mastery
+            if (dummySpell->SpellIconID == 2622)
+            {
+                if(GetTypeId()!=TYPEID_PLAYER)
+                    return false;
+                
+                for (uint32 i = 0; i < MAX_RUNES; ++i)
+                {
+                    RuneType currRune = ((Player*)this)->GetCurrentRune(i);
+                    if (currRune == RUNE_UNHOLY || currRune == RUNE_FROST)
+                    {
+                        uint16 cd = ((Player*)this)->GetRuneCooldown(i);
+                        if(!cd)
+                            ((Player*)this)->ConvertRune(i, RUNE_DEATH);
+                        else // there is a cd 
+                            ((Player*)this)->SetNeedConvertRune(i, true);
+
+                        // no break because it converts all
+                    }
+                }
+                return true;
+            }
             // Wandering Plague
             if (dummySpell->SpellIconID == 1614)
             {
@@ -12270,6 +12322,7 @@ bool InitTriggerAuraData()
     isTriggerAura[SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN] = true;
     isTriggerAura[SPELL_AURA_SPELL_MAGNET] = true;
     isTriggerAura[SPELL_AURA_MOD_ATTACK_POWER] = true;
+    isTriggerAura[SPELL_AURA_PERIODIC_DUMMY] = true;
     isTriggerAura[SPELL_AURA_ADD_CASTER_HIT_TRIGGER] = true;
     isTriggerAura[SPELL_AURA_OVERRIDE_CLASS_SCRIPTS] = true;
     isTriggerAura[SPELL_AURA_MOD_MECHANIC_RESISTANCE] = true;
@@ -12459,6 +12512,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
             case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
             case SPELL_AURA_MANA_SHIELD:
             case SPELL_AURA_OBS_MOD_MANA:
+            case SPELL_AURA_PERIODIC_DUMMY:
             case SPELL_AURA_DUMMY:
             {
                 sLog.outDebug("ProcDamageAndSpell: casting spell id %u (triggered by %s dummy aura of spell %u)", spellInfo->Id,(isVictim?"a victim's":"an attacker's"), triggeredByAura->GetId());

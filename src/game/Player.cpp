@@ -2024,8 +2024,17 @@ void Player::Regenerate(Powers power, uint32 diff)
 
             for(uint32 i = 0; i < MAX_RUNES; ++i)
             {
-                if(uint16 cd = GetRuneCooldown(i))           // if we have cooldown, reduce it...
+                uint16 cd = GetRuneCooldown(i);
+                if(cd)           // if we have cooldown, reduce it...
                     SetRuneCooldown(i, (cd < diff) ? 0 : cd - diff);
+                
+                // check if we don't have cooldown, need convert and that our rune wasn't already converted
+                if((!cd || cd < diff) && m_runes->isRuneNeedsConvert(i) && GetBaseRune(i) == GetCurrentRune(i))
+                {
+                    // currently all delayed rune converts happen with rune death
+                    ConvertRune(i, RUNE_DEATH);
+                    SetNeedConvertRune(i, false);
+                }
             }
         }   break;
         case POWER_FOCUS:
@@ -20009,6 +20018,7 @@ void Player::InitRunes()
     m_runes = new Runes;
 
     m_runes->runeState = 0;
+    m_runes->needConvert = 0;
 
     for(uint32 i = 0; i < MAX_RUNES; ++i)
     {
