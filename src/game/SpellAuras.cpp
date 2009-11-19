@@ -4288,7 +4288,10 @@ void Aura::HandleAuraModRoot(bool apply, bool Real)
                 m_target->SendMessageToSet(&data, true);
             }
         }
-    }
+   }
+	  // Heroic Fury (Intercept cooldown remove)
+    if (apply && GetSpellProto()->Id == 60970 && m_target->GetTypeId() == TYPEID_PLAYER)
+        ((Player*)m_target)->RemoveSpellCooldown(20252, true);
 }
 
 void Aura::HandleAuraModSilence(bool apply, bool Real)
