@@ -6999,6 +6999,14 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 triggered_spell_id = 49772;
                 break;
             }
+			      // Hungering Cold
+            if (dummySpell->SpellIconID == 2797)
+            {
+               // Don't remove stun aura at damage taken from diseases
+                if (GetAllSpellMechanicMask(procSpell) & (1 << MECHANIC_INFECTED))
+                    return false;
+                break;
+            }
             break;
         }
         default:
@@ -12508,6 +12516,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
                 DealSpellDamage(&damageInfo, true);
                 break;
             }
+			case SPELL_AURA_MOD_STUN:
             case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:
             case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
             case SPELL_AURA_MANA_SHIELD:
