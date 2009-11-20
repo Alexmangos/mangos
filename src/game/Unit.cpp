@@ -6288,6 +6288,16 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     beacon->CastCustomSpell(beacon,triggered_spell_id,&basepoints0,NULL,NULL,true,castItem,triggeredByAura,pVictim->GetGUID());
                     return true;
                 }
+                // Seal of the Martyr do damage trigger
+                case 53720:
+                {
+                    // 0 effect - is proc on enemy
+                    if (effIndex == 0 && (procFlag & PROC_FLAG_SUCCESSFUL_MELEE_HIT))
+                        triggered_spell_id = 53719;
+                    else
+                        return true;
+                    break;
+                }
                 // Paladin Tier 6 Trinket (Ashtongue Talisman of Zeal)
                 case 40470:
                 {
@@ -9485,6 +9495,17 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
             break;
         }
         case SPELL_DAMAGE_CLASS_MELEE:
+        {
+            // Judgement of Command proc always crits on stunned target
+            if(spellProto->SpellFamilyName == SPELLFAMILY_PALADIN)
+            {
+                if(spellProto->SpellFamilyFlags & 0x0000000000800000LL && spellProto->SpellIconID == 561)
+                {
+                    if(pVictim->hasUnitState(UNIT_STAT_STUNNED))
+                        return true;
+                }
+            }
+        }
         case SPELL_DAMAGE_CLASS_RANGED:
         {
             if (pVictim)
