@@ -23,6 +23,7 @@
 #include "GameObject.h"
 #include "Player.h"
 #include "ObjectAccessor.h"
+#include "ObjectDefines.h"
 #include "WorldSession.h"
 #include "InstanceSaveMgr.h"
 #include "LootMgr.h"
@@ -314,7 +315,7 @@ void WorldSession::DoLootRelease( uint64 lguid )
                     Map *map = go->GetMap();
                     if (map->IsDungeon())
                     {
-                        if (map->IsRaid() || map->IsHeroic())
+                        if (map->IsRaidOrHeroicDungeon())
                         {
                             ((InstanceMap *)map)->PermBindAllPlayers(player);
                         }
