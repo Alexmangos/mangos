@@ -7208,6 +7208,22 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
                     // spirit
                     if (GetStat(STAT_SPIRIT)   > stat) { trigger_spell_id = 60235;stat = GetStat(STAT_SPIRIT);   }
                 }
+	 	    else if (auraSpellInfo->Id==67771)          // Death's Choice (Item Level 258)
+               {
+                      float stat = 0.0f;
+                      // strength
+                      if (GetStat(STAT_STRENGTH) > stat) { trigger_spell_id = 67773;stat = GetStat(STAT_STRENGTH); }
+                      // agility
+                      if (GetStat(STAT_AGILITY)  > stat) { trigger_spell_id = 67772;stat = GetStat(STAT_AGILITY);  }
+ 	    }
+                else if (auraSpellInfo->Id==67702)          // Death's Choise (Item Level 245)
+                {
+                      float stat = 0.0f;
+                      // strength
+                      if (GetStat(STAT_STRENGTH) > stat) { trigger_spell_id = 67708;stat = GetStat(STAT_STRENGTH); }
+                      // agility
+                      if (GetStat(STAT_AGILITY)  > stat) { trigger_spell_id = 67703;stat = GetStat(STAT_AGILITY);  }
+ 				}	
                 //else if (auraSpellInfo->Id==31255)        // Deadly Swiftness (Rank 1)
                 //else if (auraSpellInfo->Id==5301)         // Defensive State (DND)
                 //else if (auraSpellInfo->Id==13358)        // Defensive State (DND)
