@@ -1253,7 +1253,7 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
        damageInfo->cleanDamage    = 0;
        return;
     }
-    damage += CalculateDamage (damageInfo->attackType, false, true);
+    damage += CalculateDamage (damageInfo->attackType, false);
     // Add melee damage bonus
     damage = MeleeDamageBonus(damageInfo->target, damage, damageInfo->attackType);
     // Calculate armor reduction
@@ -2400,12 +2400,12 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
     return MELEE_HIT_NORMAL;
 }
 
-uint32 Unit::CalculateDamage (WeaponAttackType attType, bool normalized, bool addTotalPct)
+uint32 Unit::CalculateDamage (WeaponAttackType attType, bool normalized)
 {
     float min_damage, max_damage;
 
-    if (GetTypeId()==TYPEID_PLAYER && (normalized || !addTotalPct))
-        ((Player*)this)->CalculateMinMaxDamage(attType,normalized,addTotalPct,min_damage, max_damage);
+    if (normalized && GetTypeId()==TYPEID_PLAYER)
+        ((Player*)this)->CalculateMinMaxDamage(attType,normalized,min_damage, max_damage);
     else
     {
         switch (attType)
@@ -2446,8 +2446,7 @@ float Unit::CalculateLevelPenalty(SpellEntry const* spellProto) const
     if(spellProto->spellLevel <= 0)
         return 1.0f;
 
-    uint32 rank = sSpellMgr.GetSpellRank(spellProto->Id);
-    if(rank < 1)
+    if (sSpellMgr.IsHighestRankOfSpell(spellProto->Id))
         return 1.0f;
 
     float LvlPenalty = 0.0f;
@@ -7198,7 +7197,23 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
                     // intellect
                     if (GetStat(STAT_INTELLECT)> stat) { trigger_spell_id = 60234;stat = GetStat(STAT_INTELLECT);}
                     // spirit
-                    if (GetStat(STAT_SPIRIT)   > stat) { trigger_spell_id = 60235;stat = GetStat(STAT_SPIRIT);   }
+                    if (GetStat(STAT_SPIRIT)   > stat) { trigger_spell_id = 60235;                               }
+                }
+                else if (auraSpellInfo->Id==67702)          // Death's Choice, Item - Coliseum 25 Normal Melee Trinket
+                {
+                    float stat = 0.0f;
+                    // strength
+                    if (GetStat(STAT_STRENGTH) > stat) { trigger_spell_id = 67708;stat = GetStat(STAT_STRENGTH); }
+                    // agility
+                    if (GetStat(STAT_AGILITY)  > stat) { trigger_spell_id = 67703;                               }
+                }
+                else if (auraSpellInfo->Id==67771)          // Death's Choice (heroic), Item - Coliseum 25 Heroic Melee Trinket
+                {
+                    float stat = 0.0f;
+                    // strength
+                    if (GetStat(STAT_STRENGTH) > stat) { trigger_spell_id = 67773;stat = GetStat(STAT_STRENGTH); }
+                    // agility
+                    if (GetStat(STAT_AGILITY)  > stat) { trigger_spell_id = 67772;                               }
                 }
 	 	    else if (auraSpellInfo->Id==67771)          // Death's Choice (Item Level 258)
                {
