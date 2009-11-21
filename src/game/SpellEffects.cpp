@@ -1905,6 +1905,14 @@ void Spell::EffectDummy(uint32 i)
 
             switch(m_spellInfo->Id)
             {
+                // Judgement of Righteousness (0.2*$AP+0.32*$SPH) holy added in spellDamagBonus
+                case 20187:
+                {
+                    if (!unitTarget)
+                        return;
+                    m_damage+=int32(0.2f*m_caster->GetTotalAttackPowerValue(BASE_ATTACK));
+                    return;
+                }
                 case 31789:                                 // Righteous Defense (step 1)
                 {
                     if (m_caster->GetTypeId() != TYPEID_PLAYER)
