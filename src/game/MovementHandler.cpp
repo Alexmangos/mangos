@@ -564,7 +564,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             SendAreaTriggerMessage("XYT: %f ; Flags: %s",delta_xyt,FlagsToStr(movementInfo.flags).c_str());
 #endif //__ANTI_DEBUG__
             
-            if(delta_xyt > MaxDeltaXYT && delta<=100.0f)
+            if(delta_xyt > MaxDeltaXYT && delta<=100.0f && GetPlayer()->GetZoneId() != 2257)
             {
                 Anti__CheatOccurred(CurTime,"Speed hack",delta_xyt,LookupOpcodeName(opcode),
                                     (float)(GetPlayer()->GetMotionMaster()->GetCurrentMovementGeneratorType()),
