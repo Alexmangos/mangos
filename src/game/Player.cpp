@@ -6273,16 +6273,6 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
 
     // add honor points
     ModifyHonorPoints(int32(honor));
-	
-	// add money for hk
-	int hntmn = honor * 10000 / 3 + rand() % 2 * 1000 + rand() % 2 * 100;
-	int buffer, gold = hntmn / 10000, silv = (hntmn % 10000) / 1000, copp = (hntmn % 10000) % 100;
-	char mainstr[180]; 
-	
-	buffer = sprintf(mainstr, "You earned %ig%is%ic and %i honor for killing %s!", gold, silv, copp, int32(honor), uVictim->GetName());
-	
-	ModifyMoney(hntmn);
-	ChatHandler(this).SendSysMessage(mainstr);
 
     ApplyModUInt32Value(PLAYER_FIELD_TODAY_CONTRIBUTION, uint32(honor), true);
     return true;
@@ -6600,28 +6590,9 @@ void Player::DuelComplete(DuelCompleteType type)
 
     if (type == DUEL_WON)
     {
-		
-		// add money and honor for duel win
-		int hntmn = 25 * 10000 / 3 + rand() % 2 * 1000 + rand() % 2 * 100;
-		int buffer, gold = hntmn / 10000, silv = (hntmn % 10000) / 1000, copp = (hntmn % 10000) % 100;
-		char mainstr[180];
-		
-		buffer = sprintf(mainstr, "You earned %ig%is%ic and %i honor for beating %s in a duel!", gold, silv, copp, int32(30), GetName());
-		
-		ChatHandler(duel->opponent).SendSysMessage(mainstr);
-		
-		duel->opponent->ModifyMoney(hntmn);
-		duel->opponent->ModifyHonorPoints(int32(30));
-		
-		GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOSE_DUEL, 1);
+      GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOSE_DUEL, 1);
         if (duel->opponent)
             duel->opponent->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_DUEL, 1);
-		
-		// add honor for duel loss, no money
-		ModifyHonorPoints(int32(15));
-		buffer = sprintf(mainstr, "You earned %i honor even though %s won the duel!", int32(15), duel->opponent->GetName());
-		ChatHandler(this).SendSysMessage(mainstr);
-		
     }
 
     //Remove Duel Flag object
