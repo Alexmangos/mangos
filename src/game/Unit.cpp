@@ -5464,8 +5464,22 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     // Cast finish spell (triggeredByAura already not exist!)
                     CastSpell(this, 27285, true, castItem, NULL, casterGuid);
                     return true;                            // no hidden cooldown
-                }
-
+               }
+             // Body And Soul - Abolish Disease part
+             if (dummySpell->SpellIconID == 2218)
+             {
+                 if(procSpell->Id != 552)
+                     return false;
+                 
+                 //self only
+                 if(triggeredByAura->GetCasterGUID() != pVictim->GetGUID())
+                     return false;
+ 
+                 if(!roll_chance_i(triggerAmount))
+                     return false;
+ 
+                 triggered_spell_id = 64136;
+             }
                 // Damage counting
                 mod->m_amount-=damage;
                 return true;
@@ -7958,6 +7972,14 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
         case 62606:
         {
             basepoints[0] = int32(GetTotalAttackPowerValue(BASE_ATTACK) * triggerAmount / 100);
+            break;
+        }
+        // Body And Soul - prevent proc from any other except Power Word: Shield
+        case 64127:
+        case 64129:
+        {
+            if (!(procSpell->SpellFamilyFlags & UI64LIT(0x0000000000000001)))
+                return false;
             break;
         }
     }
