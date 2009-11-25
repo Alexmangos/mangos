@@ -16668,7 +16668,7 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
     if(!pet)
         pet = GetPet();
 
-    if(returnreagent && (pet || m_temporaryUnsummonedPetNumber) && (!IsWithinDistInMap(pet, OWNER_MAX_DISTANCE) || !InBattleGround()))
+    if(returnreagent && (pet || m_temporaryUnsummonedPetNumber) && (!IsWithinDistInMap(pet, GetMap()->GetVisibilityDistance()) || !InBattleGround()))
     {
         //returning of reagents only for players, so best done here
         uint32 spellId = pet ? pet->GetUInt32Value(UNIT_CREATED_BY_SPELL) : m_oldpetspell;
