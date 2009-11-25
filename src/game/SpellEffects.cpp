@@ -519,6 +519,23 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
                 // Shadow Word: Death - deals damage equal to damage done to caster
                 if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000200000000))
                     m_caster->CastCustomSpell(m_caster, 32409, &damage, 0, 0, true);
+                // Improved Mind Blast (Mind Blast in shadow form bonus)
+                else if (m_caster->m_form == FORM_SHADOW && (m_spellInfo->SpellFamilyFlags & UI64LIT(0x00002000)))
+                {
+                    Unit::AuraList const& ImprMindBlast = m_caster->GetAurasByType(SPELL_AURA_ADD_FLAT_MODIFIER);
+                    for(Unit::AuraList::const_iterator i = ImprMindBlast.begin(); i != ImprMindBlast.end(); ++i)
+                    {
+                        if ((*i)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_PRIEST &&
+                            ((*i)->GetSpellProto()->SpellIconID == 95))
+                        {
+                            int chance = (*i)->GetSpellProto()->CalculateSimpleValue(1);
+                            if (roll_chance_i(chance))
+                                // Mind Trauma
+                                m_caster->CastSpell(unitTarget, 48301, true, 0);
+                            break;
+                        }
+                    }
+                }
                 break;
             }
             case SPELLFAMILY_DRUID:
@@ -686,6 +703,14 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
             }
             case SPELLFAMILY_PALADIN:
             {
+                // Judgement of Righteousness - receive benefit from Spell Damage and Attack power
+                if (m_spellInfo->Id == 20187)
+                {
+                    float ap = m_caster->GetTotalAttackPowerValue(BASE_ATTACK);
+                    int32 holy = m_caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellInfo)) +
+                                 m_caster->SpellBaseDamageBonusForVictim(GetSpellSchoolMask(m_spellInfo), unitTarget);
+                    damage += int32(ap * 0.2f) + int32(holy * 0.32f);
+                }
                 // Judgement of Vengeance/Corruption ${1+0.22*$SPH+0.14*$AP} + 10% for each application of Holy Vengeance/Blood Corruption on the target
                 if ((m_spellInfo->SpellFamilyFlags & UI64LIT(0x800000000)) && m_spellInfo->SpellIconID==2292)
                 {
@@ -1347,19 +1372,19 @@ void Spell::EffectDummy(uint32 i)
                     if (((Player *)m_caster)->GetTeam() == HORDE)
                     {
                         if (m_caster->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // 100% Ram
+                            // Swift Brewfest Ram, 100% Ram
                             m_caster->CastSpell(m_caster, 43900, true);
                         else
-                            // 60% Ram
+                            // Brewfest Ram, 60% Ram
                             m_caster->CastSpell(m_caster, 43899, true);
                     }
                     else
                     {
                         if (((Player *)m_caster)->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // 100% Kodo
+                            // Great Brewfest Kodo, 100% Kodo
                             m_caster->CastSpell(m_caster, 49379, true);
                         else
-                            // 60% Kodo
+                            // Brewfest Riding Kodo, 60% Kodo
                             m_caster->CastSpell(m_caster, 49378, true);
                     }
                     return;
@@ -1898,17 +1923,6 @@ void Spell::EffectDummy(uint32 i)
 
             switch(m_spellInfo->Id)
             {
-                // Judgement of Righteousness (0.2*$AP+0.32*$SPH) holy added in spellDamagBonus
-                case 20187:
-                {
-                    if (!unitTarget)
-                        return;
-                    float ap = m_caster->GetTotalAttackPowerValue(BASE_ATTACK);
-                    int32 holy = m_caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellInfo)) +
-                                 m_caster->SpellBaseDamageBonusForVictim(GetSpellSchoolMask(m_spellInfo), unitTarget);
-                    m_damage+=int32(0.2f * ap + 0.32f * holy);
-                    return;
-                }
                 case 31789:                                 // Righteous Defense (step 1)
                 {
                     if (m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -3618,7 +3632,6 @@ void Spell::EffectSummonType(uint32 i)
         case SUMMON_TYPE_POSESSED2:
         case SUMMON_TYPE_FORCE_OF_NATURE:
         case SUMMON_TYPE_GUARDIAN2:
-        case SUMMON_TYPE_RUNE_BLADE:
         case SUMMON_TYPE_GUARDIAN3:
         case SUMMON_TYPE_GHOUL:
         case SUMMON_TYPE_GHOUL_OF_THE_DEAD:
@@ -4335,11 +4348,6 @@ void Spell::EffectEnchantItemPerm(uint32 effect_idx)
     if (!itemTarget)
         return;
 
-    Player* p_caster = (Player*)m_caster;
-
-    // not grow at item use at item case
-    p_caster->UpdateCraftSkill(m_spellInfo->Id);
-
     uint32 enchant_id = m_spellInfo->EffectMiscValue[effect_idx];
     if (!enchant_id)
         return;
@@ -4352,6 +4360,25 @@ void Spell::EffectEnchantItemPerm(uint32 effect_idx)
     Player* item_owner = itemTarget->GetOwner();
     if (!item_owner)
         return;
+
+    Player* p_caster = (Player*)m_caster;
+
+    // Enchanting a vellum requires special handling, as it creates a new item
+    // instead of modifying an existing one.
+    ItemPrototype const* targetProto = itemTarget->GetProto();
+    if(targetProto->IsVellum() && m_spellInfo->EffectItemType[effect_idx])
+    {
+        unitTarget = m_caster;
+        DoCreateItem(effect_idx,m_spellInfo->EffectItemType[effect_idx]);
+        // Vellum target case: Target becomes additional reagent, new scroll item created instead in Spell::EffectEnchantItemPerm()
+        // cannot already delete in TakeReagents() unfortunately
+        p_caster->DestroyItemCount(targetProto->ItemId, 1, true);
+        return;
+    }
+
+    // not grow at item use at item case, using scrolls does not increase enchanting skill!
+    if (!(m_CastItem && m_CastItem->GetProto()->Flags & ITEM_FLAGS_ENCHANT_SCROLL))
+        p_caster->UpdateCraftSkill(m_spellInfo->Id);
 
     if (item_owner!=p_caster && p_caster->GetSession()->GetSecurity() > SEC_PLAYER && sWorld.getConfig(CONFIG_GM_LOG_TRADE) )
     {
@@ -5252,6 +5279,10 @@ void Spell::EffectSummonObjectWild(uint32 i)
 void Spell::EffectScriptEffect(uint32 effIndex)
 {
     // TODO: we must implement hunter pet summon at login there (spell 6962)
+
+    // Guarded by Light
+    if (m_spellInfo->Id == 63521 && m_caster && m_caster->HasAura(54428))
+        m_caster->GetAura(54428, 0)->RefreshAura();
 
     switch(m_spellInfo->SpellFamilyName)
     {

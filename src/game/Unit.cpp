@@ -6811,16 +6811,7 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     return false;
                 // TODO: wite script for this "fights on its own, doing the same attacks"
                 // NOTE: Trigger here on every attack and spell cast
-                Pet* runeBlade = FindGuardianWithEntry(27893);
-                if (!runeBlade)
-                   return false;
-                else
-                {
-                    // only melee based spells?
-                    if(procSpell)
-                        runeBlade->CastSpell(pVictim,procSpell,true,castItem,triggeredByAura);
-                    return true;
-                }
+                return false;
             }
             // Mark of Blood
             if (dummySpell->Id == 49005)
@@ -13878,13 +13869,13 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
 
 void Unit::SendThreatUpdate()
 {
-    if (uint32 count = getThreatManager().getThreatList().size())
+    ThreatList const& tlist = getThreatManager().getThreatList();
+    if (uint32 count = tlist.size())
     {
         sLog.outDebug( "WORLD: Send SMSG_THREAT_UPDATE Message" );
         WorldPacket data(SMSG_THREAT_UPDATE, 8 + count * 8);
         data.append(GetPackGUID());
         data << uint32(count);
-        ThreatList& tlist = getThreatManager().getThreatList();
         for (ThreatList::const_iterator itr = tlist.begin(); itr != tlist.end(); ++itr)
         {
             data.appendPackGUID((*itr)->getUnitGuid());
@@ -13896,14 +13887,14 @@ void Unit::SendThreatUpdate()
 
 void Unit::SendHighestThreatUpdate(HostileReference* pHostilReference)
 {
-    if (uint32 count = getThreatManager().getThreatList().size())
+    ThreatList const& tlist = getThreatManager().getThreatList();
+    if (uint32 count = tlist.size())
     {
         sLog.outDebug( "WORLD: Send SMSG_HIGHEST_THREAT_UPDATE Message" );
         WorldPacket data(SMSG_HIGHEST_THREAT_UPDATE, 8 + 8 + count * 8);
         data.append(GetPackGUID());
         data.appendPackGUID(pHostilReference->getUnitGuid());
         data << uint32(count);
-        ThreatList const& tlist = getThreatManager().getThreatList();
         for (ThreatList::const_iterator itr = tlist.begin(); itr != tlist.end(); ++itr)
         {
             data.appendPackGUID((*itr)->getUnitGuid());
@@ -13946,4 +13937,44 @@ void Unit::RemoveAurasDueToMechanic(uint32 mechanic_mask, uint32 do_not_remove)
         }
         ++iter;
     }
+}
+
+void Unit::StopAttackFaction(uint32 faction_id)
+{
+    if (Unit* victim = getVictim())
+    {
+        if (victim->getFactionTemplateEntry()->faction==faction_id)
+        {
+            AttackStop();
+            if (IsNonMeleeSpellCasted(false))
+                InterruptNonMeleeSpells(false);
+
+            // melee and ranged forced attack cancel
+            if (GetTypeId() == TYPEID_PLAYER)
+                ((Player*)this)->SendAttackSwingCancelAttack();
+        }
+    }
+
+    AttackerSet const& attackers = getAttackers();
+    for(AttackerSet::const_iterator itr = attackers.begin(); itr != attackers.end();)
+    {
+        if ((*itr)->getFactionTemplateEntry()->faction==faction_id)
+        {
+            (*itr)->AttackStop();
+            itr = attackers.begin();
+        }
+        else
+            ++itr;
+    }
+
+    getHostileRefManager().deleteReferencesForFaction(faction_id);
+
+    if(Pet* pet = GetPet())
+        pet->StopAttackFaction(faction_id);
+    if(Unit* charm = GetCharm())
+        charm->StopAttackFaction(faction_id);
+
+    for(GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
+        if(Unit* guardian = Unit::GetUnit(*this,*itr))
+            guardian->StopAttackFaction(faction_id);
 }
