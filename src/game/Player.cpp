@@ -16563,7 +16563,7 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
             {
                 if(spellInfo->Reagent[i] > 0)
                 {
-                    ItemPosCountVec dest;                   //for succubus, voidwalker, felhunter and felguard credit soulshard when despawn reason other than death (out of range, logout)
+                    ItemPosCountVec dest;                   //for succubus, voidwalker, felhunter and felguard credit soulshard when despawn reason other than death (out of range)
                     uint8 msg = CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, spellInfo->Reagent[i], spellInfo->ReagentCount[i] );
                     if( msg == EQUIP_ERR_OK )
                     {
@@ -16596,20 +16596,6 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
     }
 
     pet->CombatStop();
-
-    if(returnreagent)
-    {
-        switch(pet->GetEntry())
-        {
-            //warlock pets except imp are removed(?) when logging out
-            case 1860:
-            case 1863:
-            case 417:
-            case 17252:
-                mode = PET_SAVE_NOT_IN_SLOT;
-                break;
-        }
-    }
 
     pet->SavePetToDB(mode);
 
@@ -20544,8 +20530,14 @@ void Player::UpdateFallInformationIfNeed( MovementInfo const& minfo,uint16 opcod
 void Player::UnsummonPetTemporaryIfAny()
 {
     Pet* pet = GetPet();
-    if(!pet)
+    if(!pet || pet->getDeathState()==CORPSE)  // if pet doesn't exist or has corpse (prevent get dead pet back while mounted, teleported etc)
+         return;
+
+    if (((Player*)this)->InArena())
+    {
+        RemovePet(pet, PET_SAVE_NOT_IN_SLOT); // remove pet while is player teleported to arena
         return;
+    }
 
     if(!m_temporaryUnsummonedPetNumber && pet->isControlled() && !pet->isTemporarySummoned() )
     {
