@@ -1622,6 +1622,11 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                     (spellId_2 == 33891 && spellId_1 == 34123))
                     return false;
 
+                //  Innervate and Glyph of Innervate
+                if ((spellId_1 == 29166 && spellId_2 == 54833) ||
+                    (spellId_2 == 29166 && spellId_1 == 54833))
+                    return false;
+
                 // Wrath of Elune and Nature's Grace
                 if( spellInfo_1->Id == 16886 && spellInfo_2->Id == 46833 || spellInfo_2->Id == 16886 && spellInfo_1->Id == 46833 )
                     return false;
