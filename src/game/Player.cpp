@@ -16551,7 +16551,7 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
     if(!pet)
         pet = GetPet();
 
-    if(returnreagent && (pet || m_temporaryUnsummonedPetNumber))
+    if(returnreagent && (pet || m_temporaryUnsummonedPetNumber) && !InBattleGround())
     {
         //returning of reagents only for players, so best done here
         uint32 spellId = pet ? pet->GetUInt32Value(UNIT_CREATED_BY_SPELL) : m_oldpetspell;
