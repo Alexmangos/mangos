@@ -2465,20 +2465,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 }
                 return;
             }
-            case 34477:                                     // Misdirection - aura applied to spell caster
-            {
-                // We must remove target to which threat is redirected
-                m_target->RemoveRedirectThreatEntry(34477);
-                return;
-            }
-            case 35079:                                     // Misdirection - aura applied to spell target
-            {
-                if (m_removeMode == AURA_REMOVE_BY_STACK)
-                    // We must remove 34477 aura from first caster due to
-                    // "Caster and target can only be affected by one Misdirection spell at a time"
-                    GetCaster()->RemoveAurasDueToSpellByCancel(34477);
-                return;
-            }
             case 45934:                                     // Dark Fiend
             {
                 // Kill target if dispelled
@@ -2636,21 +2622,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         m_target->m_AuraFlags |= UNIT_AURAFLAG_ALIVE_INVISIBLE;
                     else
                         m_target->m_AuraFlags |= ~UNIT_AURAFLAG_ALIVE_INVISIBLE;
-                    return;
-                // Tricks of the Trade - 15% damage bonus effect for redirection target
-                case 59628:
-                    if (m_target->GetTypeId() == TYPEID_PLAYER)
-                    {
-                        RedirectThreatEntry* entry = m_target->GetRedirectThreatEntry(57934);
-                        if (!entry)
-                            return;
-
-                        if (apply && entry->m_redirectTo->isAlive())
-                                caster->CastSpell(entry->m_redirectTo,57933,true);
-                        else
-                            // We must remove target to which threat is redirected
-                            m_target->RemoveRedirectThreatEntry(57934);
-                    }
                     return;
             }
             break;
@@ -4687,14 +4658,6 @@ void Aura::HandleAuraProcTriggerSpell(bool apply, bool Real)
             default: break;
         }
     }
-
-    // Vigilance. We must apply threat redirect (59665) in some aura of main spell. Don't know where it's better to do it :(
-    if (GetId() == 50720)
-        if (apply)
-            GetCaster()->CastSpell(m_target,59665,true);
-        else
-            // We must remove target to which threat is redirected
-            m_target->RemoveRedirectThreatEntry(59665);
 }
 
 void Aura::HandleAuraModStalked(bool apply, bool /*Real*/)

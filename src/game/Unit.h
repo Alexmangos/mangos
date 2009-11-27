@@ -1391,12 +1391,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void removeHatedBy(HostileReference* /*pHostileReference*/ ) { /* nothing to do yet */ }
         HostileRefManager& getHostileRefManager() { return m_HostileRefManager; }
 
-        // Threat redirection methods
-        RedirectThreatMap* GetRedirectThreatMap();
-        void AddRedirectThreatEntry(Unit* redirectTo, uint32 spellId, float redirectPct);
-        void RemoveRedirectThreatEntry(uint32 spellId);
-        RedirectThreatEntry* GetRedirectThreatEntry(uint32 spellId);
-
         uint32 GetVisibleAura(uint8 slot)
         {
             VisibleAuraMap::const_iterator itr = m_visibleAuras.find(slot);
@@ -1630,9 +1624,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // player or player's pet
         float GetCombatRatingReduction(CombatRating cr) const;
         uint32 GetCombatRatingDamageReduction(CombatRating cr, float rate, float cap, uint32 damage) const;
-
-        RedirectThreatEntry* GetRedirectThreatEntry(RedirectThreatMap* map, uint32 spellId);
-        float AddThreatToRedirectionTargets(Unit* pVictim, float threat, bool crit, SpellSchoolMask schoolMask, SpellEntry const *threatSpell);
 
         uint32 m_state;                                     // Even derived shouldn't modify
         uint32 m_CombatTimer;
