@@ -18,6 +18,7 @@
 
 #include "Common.h"
 #include "ChatLexicsCutter.h"
+#include "Log.h"
 
 LexicsCutter::LexicsCutter()
 {
