@@ -1431,15 +1431,34 @@ void Spell::EffectDummy(uint32 i)
                     if (m_caster->GetTypeId() != TYPEID_PLAYER)
                         return;
 
-                    uint32 spell_id;
-                    switch(urand(1, 3))
+                    uint32 spell_id = 0;
+                    switch(m_caster->getClass())
                     {
-                        case 1: spell_id = 67016; break;
-                        case 2: spell_id = 67017; break;
-                        default:spell_id = 67018; break;
+                        case CLASS_WARRIOR:
+                        case CLASS_DEATH_KNIGHT:
+                            spell_id = 67018;               // STR for Warriors, Death Knights
+                            break;
+                        case CLASS_ROGUE:
+                        case CLASS_HUNTER:
+                            spell_id = 67017;               // AP for Rogues, Hunters
+                            break;
+                        case CLASS_PRIEST:
+                        case CLASS_MAGE:
+                        case CLASS_WARLOCK:
+                            spell_id = 67016;               // SPD for Priests, Mages, Warlocks
+                            break;
+                        case CLASS_SHAMAN:
+                            // random (SPD, AP)
+                            spell_id = roll_chance_i(50) ? 67016 : 67017;
+                            break;
+                        case CLASS_PALADIN:
+                        case CLASS_DRUID:
+                        default:
+                            // random (SPD, STR)
+                            spell_id = roll_chance_i(50) ? 67016 : 67018;
+                            break;
                     }
-
-                    m_caster->CastSpell(m_caster, spell_id, true, NULL);
+                    m_caster->CastSpell(m_caster, spell_id, true);
                     return;
                 }
             }
@@ -3670,9 +3689,6 @@ void Spell::EffectSummonType(uint32 i)
         case SUMMON_TYPE_TOTEM:
         case SUMMON_TYPE_TOTEM2:
             EffectSummonTotem(i);
-            break;
-        case SUMMON_TYPE_LIGHTWELL:
-            EffectTransmitted(i);
             break;
         case SUMMON_TYPE_UNKNOWN1:
         case SUMMON_TYPE_UNKNOWN2:
