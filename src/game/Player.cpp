@@ -4126,7 +4126,7 @@ void Player::BuildPlayerRepop()
     if(GetCorpse())
     {
         sLog.outError("BuildPlayerRepop: player %s(%d) already has a corpse", GetName(), GetGUIDLow());
-        // assert(false); causes crashes in WorldSession::logoutplayer
+        return;
     }
 
     // create a corpse and place it at the player's location
