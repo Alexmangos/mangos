@@ -5547,6 +5547,55 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     basepoints0 = int32(damage*triggerAmount/100);
                     target = this;
                     triggered_spell_id = 30294;
+	                //Improved Soul Leech
+                    //prevent more applications if there are more auras with same ID
+                    bool applied = false;
+                    AuraList const& isl = GetAurasByType(SPELL_AURA_DUMMY);
+                    for(AuraList::const_iterator itr = isl.begin(); itr != isl.end(); ++itr)
+                    {
+                        switch((*itr)->GetId())
+                        {
+                            case 54117:
+                            case 54118:
+                            {
+                                applied = true;
+
+                                SpellEntry const *impSoulLeech = (*itr)->GetSpellProto();
+                                //get aura specified proc chance
+                                int32 chance = 0;
+                                for(uint32 i = 0; i < 3; ++i)
+                                {
+                                if(impSoulLeech->EffectSpellClassMaskA[i] == 192)
+                                    chance = GetAura(impSoulLeech->Id, i)->GetModifier()->m_amount;
+                                }
+                                if(roll_chance_i(chance))
+                                {
+                                    switch(impSoulLeech->Id)
+                                    {
+                                        case 54117: CastSpell(this, 54300, true, NULL, (*itr)); break;    //Rank 1
+                                        case 54118: CastSpell(this, 59117, true, NULL, (*itr)); break;    //Rank 2
+                                    }
+                                    //restore mana to pet if any
+                                    int32 bp0 = 0;
+                                    //get % mana
+                                    for(uint32 i = 0; i < 3; ++i)
+                                    {
+                                    if(impSoulLeech->EffectSpellClassMaskA[i] == 897)
+                                        bp0 = GetAura(impSoulLeech->Id, i)->GetModifier()->m_amount;
+                                    }
+                                    if(GetPet())
+                                    {
+                                        CastCustomSpell(GetPet(),54607,&bp0,NULL,NULL,true,castItem,(*itr));
+                                    }
+                                    //Replenishment
+                                    CastSpell(this, 57669, true, NULL, (*itr));
+                                }
+                                break;
+                            }
+                        }
+                        if(applied)
+                            break;
+                    }
                     break;
                 }
                 // Shadowflame (Voidheart Raiment set bonus)
