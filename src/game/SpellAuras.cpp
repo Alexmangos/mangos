@@ -4710,25 +4710,6 @@ void Aura::HandlePeriodicEnergize(bool apply, bool Real)
     {
         switch (GetId())
         {
-            case 54833: //Glyph of Innervate (value% of casters base mana)
-            {
-                Unit* caster = GetCaster();
-                if (caster)
-                    m_modifier.m_amount = (int)(caster->GetCreateMana() * GetBasePoints() / (200 * m_maxduration / m_periodicTimer));
-                break;
-
-            }
-            case 29166: //Innervate (value% of casters base mana)
-            {
-                Unit* caster = GetCaster();
-                if (caster)
-                {
-                    if (caster->HasAura(54832))
-                        caster->CastSpell(caster,54833,true);
-                    m_modifier.m_amount = (int)(caster->GetCreateMana() * GetBasePoints() / (100 * m_maxduration / m_periodicTimer));
-                }
-                break;
-            }
             case 48391:                                     // Owlkin Frenzy 2% base mana
                 m_modifier.m_amount = m_target->GetCreateMana() * 2 / 100;
                 break;
