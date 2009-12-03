@@ -6118,6 +6118,19 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 basepoints0 = GetAttackTime(BASE_ATTACK) * int32(ap*0.022f + 0.044f * holy) / 1000;
                 break;
             }
+            // Sacred Shield proc Flash of Light HoT
+            if ( dummySpell->Id == 58597 )
+            {
+                Unit* caster = triggeredByAura->GetCaster();
+
+                if (caster && pVictim && caster->GetGUID() == pVictim->GetGUID())
+                {
+                    triggered_spell_id = 66922;
+                    basepoints0 = int32( damage / 12 );
+                    target = this;
+                }
+                break;
+            }
             // Sacred Shield
             if (dummySpell->SpellFamilyFlags & UI64LIT(0x0008000000000000))
             {
