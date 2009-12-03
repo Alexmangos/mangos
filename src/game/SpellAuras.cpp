@@ -1034,8 +1034,7 @@ void Aura::_AddAura()
             if ((m_spellProto->Id == 57499 || m_spellProto->Id == 64976) && m_spellProto->EffectApplyAuraName[GetEffIndex()] == SPELL_AURA_262) 
                 SetAuraFlags((7) | AFLAG_NOT_CASTER | ((GetAuraMaxDuration() > 0) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE)); 
             else 
-                SetAuraFlags((1 << GetEffIndex()) | AFLAG_NOT_CASTER | ((GetAuraMaxDuration() > 0) ? AFLAG_DURATION : AFLAG_NONE) |
-                    ((IsPositive() || (IsDispelSpell(this->GetSpellProto()) && caster->IsFriendlyTo(m_target))) ? AFLAG_POSITIVE : AFLAG_NEGATIVE));
+                SetAuraFlags((1 << GetEffIndex()) | AFLAG_NOT_CASTER | ((GetAuraMaxDuration() > 0) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE));
             SetAuraLevel(caster ? caster->getLevel() : sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL));
             SendAuraUpdate(false);
         }

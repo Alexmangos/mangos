@@ -1130,7 +1130,9 @@ void Spell::DoSpellHitOnUnit(Unit *unit, const uint32 effectMask)
     }
 
     // Recheck immune (only for delayed spells)
-    if (m_spellInfo->speed && unit->IsImmunedToSpell(m_spellInfo))
+    if (m_spellInfo->speed && (
+        unit->IsImmunedToDamage(GetSpellSchoolMask(m_spellInfo)) ||
+        unit->IsImmunedToSpell(m_spellInfo)))
     {
         realCaster->SendSpellMiss(unit, m_spellInfo->Id, SPELL_MISS_IMMUNE);
         return;
@@ -4302,15 +4304,14 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if(m_caster->IsHostileTo(target))
                     return SPELL_FAILED_BAD_TARGETS;
             }
-            else if (!IsDispelSpell(m_spellInfo))
+            else
             {
                 if(m_caster->IsFriendlyTo(target))
                     return SPELL_FAILED_BAD_TARGETS;
             }
         }
 
-        // Dispel spells are considered negative, so let's do explicit check
-        if(IsPositiveSpell(m_spellInfo->Id) || (IsDispelSpell(m_spellInfo) && m_caster && m_caster->IsFriendlyTo(target)))
+        if(IsPositiveSpell(m_spellInfo->Id))
             if(target->IsImmunedToSpell(m_spellInfo))
                 return SPELL_FAILED_TARGET_AURASTATE;
 
