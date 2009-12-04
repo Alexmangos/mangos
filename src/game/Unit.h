@@ -1267,31 +1267,42 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         bool AddAura(Aura *aur);
 
+        // removing specific aura stack
         void RemoveAura(Aura* aura, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
         void RemoveAura(AuraMap::iterator &i, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
         void RemoveAura(uint32 spellId, uint32 effindex, Aura* except = NULL);
-        void RemoveSingleSpellAurasFromStack(uint32 spellId);
-        void RemoveSingleAuraFromStack(uint32 spellId, uint32 effindex);
+
+        // removing specific aura stacks by diff reasons and selections
         void RemoveAurasDueToSpell(uint32 spellId, Aura* except = NULL);
         void RemoveAurasDueToItemSpell(Item* castItem,uint32 spellId);
         void RemoveAurasByCasterSpell(uint32 spellId, uint64 casterGUID);
         void RemoveAurasByCasterSpell(uint32 spellId, uint32 effindex, uint64 casterGUID);
-        void RemoveAurasDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit *dispeler);
         void RemoveAurasDueToSpellBySteal(uint32 spellId, uint64 casterGUID, Unit *stealer);
         void RemoveAurasDueToSpellByCancel(uint32 spellId);
         void RemoveAurasAtChanneledTarget(SpellEntry const* spellInfo);
+
+        // removing unknown aura stacks by diff reasons and selections
         void RemoveNotOwnSingleTargetAuras(uint32 newPhase = 0x0);
         void RemoveAurasAtMechanicImmunity(uint32 mechMask, uint32 exceptSpellId, bool non_positive = false);
-
         void RemoveSpellsCausingAura(AuraType auraType);
         void RemoveRankAurasDueToSpell(uint32 spellId);
         bool RemoveNoStackAurasDueToAura(Aura *Aur);
         void RemoveAurasWithInterruptFlags(uint32 flags);
         void RemoveAurasWithDispelType( DispelType type );
-
         void RemoveAllAuras(AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
         void RemoveArenaAuras(bool onleave = false);
         void RemoveAllAurasOnDeath();
+
+        // removing specific aura FROM stack
+        void RemoveSingleAuraFromStack(uint32 spellId, uint32 effindex, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
+        void RemoveSingleAuraFromStack(AuraMap::iterator &i, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
+
+        // removing specific aura FROM stack by diff reasons and selections
+        void RemoveSingleSpellAurasFromStack(uint32 spellId, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
+        void RemoveSingleSpellAurasByCasterSpell(uint32 spellId, uint64 casterGUID, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
+        void RemoveSingleAuraByCasterSpell(uint32 spellId, uint32 effindex, uint64 casterGUID, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
+        void RemoveSingleAuraDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit *dispeler);
+
         void DelayAura(uint32 spellId, uint32 effindex, int32 delaytime);
 
         float GetResistanceBuffMods(SpellSchools school, bool positive) const { return GetFloatValue(positive ? UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+school : UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+school ); }
@@ -1416,12 +1427,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void removeHatedBy(HostileReference* /*pHostileReference*/ ) { /* nothing to do yet */ }
         HostileRefManager& getHostileRefManager() { return m_HostileRefManager; }
 
-        // Threat redirection methods
-        RedirectThreatMap* GetRedirectThreatMap();
-        void AddRedirectThreatEntry(Unit* redirectTo, uint32 spellId, float redirectPct);
-        void RemoveRedirectThreatEntry(uint32 spellId);
-        RedirectThreatEntry* GetRedirectThreatEntry(uint32 spellId);
-
         uint32 GetVisibleAura(uint8 slot)
         {
             VisibleAuraMap::const_iterator itr = m_visibleAuras.find(slot);
@@ -1461,6 +1466,9 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         float GetTotalAuraMultiplierByMiscValue(AuraType auratype, int32 misc_value) const;
         int32 GetMaxPositiveAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
         int32 GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
+
+        // misc have plain value but we check it fit to provided values mask (mask & (1 << (misc-1)))
+        float GetTotalAuraMultiplierByMiscValueForMask(AuraType auratype, uint32 mask) const;
 
         Aura* GetDummyAura(uint32 spell_id) const;
 
@@ -1666,9 +1674,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // player or player's pet
         float GetCombatRatingReduction(CombatRating cr) const;
         uint32 GetCombatRatingDamageReduction(CombatRating cr, float rate, float cap, uint32 damage) const;
-
-        RedirectThreatEntry* GetRedirectThreatEntry(RedirectThreatMap* map, uint32 spellId);
-        float AddThreatToRedirectionTargets(Unit* pVictim, float threat, bool crit, SpellSchoolMask schoolMask, SpellEntry const *threatSpell);
 
         uint32 m_state;                                     // Even derived shouldn't modify
         uint32 m_CombatTimer;

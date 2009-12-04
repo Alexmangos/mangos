@@ -1146,7 +1146,9 @@ void Spell::DoSpellHitOnUnit(Unit *unit, const uint32 effectMask)
     }
 
     // Recheck immune (only for delayed spells)
-    if (m_spellInfo->speed && unit->IsImmunedToSpell(m_spellInfo))
+    if (m_spellInfo->speed && (
+        unit->IsImmunedToDamage(GetSpellSchoolMask(m_spellInfo)) ||
+        unit->IsImmunedToSpell(m_spellInfo)))
     {
         realCaster->SendSpellMiss(unit, m_spellInfo->Id, SPELL_MISS_IMMUNE);
         return;
@@ -2761,8 +2763,14 @@ void Spell::cast(bool skipCheck)
             break;
         case SPELLFAMILY_PALADIN:
         {
+            // Hand of Reckoning
+            if (m_spellInfo->Id == 62124)
+            {
+                if (m_targets.getUnitTarget() && m_targets.getUnitTarget()->getVictim() != m_caster)
+                    AddPrecastSpell(67485);                 // Hand of Rekoning (no typos in name ;) )
+            }
             // Divine Shield, Divine Protection or Hand of Protection
-            if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000400080))
+            else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000400080))
             {
                 AddPrecastSpell(25771);                     // Forbearance
                 AddPrecastSpell(61987);                     // Avenging Wrath Marker
@@ -2816,6 +2824,12 @@ void Spell::cast(bool skipCheck)
     }
 
     FillTargetMap();
+
+    // let not attack nearby enemies when Seal of Command is triggered by Divine Storm
+    if (m_spellInfo->Id == 20424)
+        if (m_caster->FindCurrentSpellBySpellId(53385))
+            for (int numTargets = m_UniqueTargetInfo.size(); numTargets > 1; numTargets--)
+                m_UniqueTargetInfo.pop_back();
 
     if(m_spellState == SPELL_STATE_FINISHED)                // stop cast if spell marked as finish somewhere in FillTargetMap
     {
@@ -4041,7 +4055,7 @@ void Spell::HandleEffects(Unit *pUnitTarget,Item *pItemTarget,GameObject *pGOTar
 
     damage = int32(CalculateDamage((uint8)i, unitTarget) * DamageMultiplier);
 
-    sLog.outDebug( "Spell: Effect : %u", eff);
+    sLog.outDebug( "Spell %u Effect%d : %u", m_spellInfo->Id, i, eff);
 
     if(eff<TOTAL_SPELL_EFFECTS)
     {
@@ -4322,15 +4336,14 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if(m_caster->IsHostileTo(target))
                     return SPELL_FAILED_BAD_TARGETS;
             }
-            else if (!IsDispelSpell(m_spellInfo))
+            else
             {
                 if(m_caster->IsFriendlyTo(target))
                     return SPELL_FAILED_BAD_TARGETS;
             }
         }
 
-        // Dispel spells are considered negative, so let's do explicit check
-        if(IsPositiveSpell(m_spellInfo->Id) || (IsDispelSpell(m_spellInfo) && m_caster && m_caster->IsFriendlyTo(target)))
+        if(IsPositiveSpell(m_spellInfo->Id))
             if(target->IsImmunedToSpell(m_spellInfo))
                 return SPELL_FAILED_TARGET_AURASTATE;
 

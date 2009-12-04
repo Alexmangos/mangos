@@ -2802,10 +2802,9 @@ SpellMissInfo Unit::SpellHitResult(Unit *pVictim, SpellEntry const *spell, bool 
     if (IsPositiveSpell(spell->Id))
         return SPELL_MISS_NONE;
 
-    // Dispel is positive when casted on friendly target and negative otherwise
-    if (IsDispelSpell(spell))
-        if (this->IsFriendlyTo(pVictim))
-            return SPELL_MISS_NONE;
+    // Check for immune
+    if (pVictim->IsImmunedToDamage(GetSpellSchoolMask(spell)))
+        return SPELL_MISS_IMMUNE;
 
     // Try victim reflect spell
     if (canReflect)
@@ -3558,6 +3557,23 @@ int32 Unit::GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_
     return modifier;
 }
 
+float Unit::GetTotalAuraMultiplierByMiscValueForMask(AuraType auratype, uint32 mask) const
+{
+    if(!mask)
+        return 1.0f;
+
+    float multiplier = 1.0f;
+
+    AuraList const& mTotalAuraList = GetAurasByType(auratype);
+    for(AuraList::const_iterator i = mTotalAuraList.begin();i != mTotalAuraList.end(); ++i)
+    {
+        Modifier* mod = (*i)->GetModifier();
+        if (mask & (1 << (mod->m_miscvalue -1)))
+            multiplier *= (100.0f + mod->m_amount)/100.0f;
+    }
+    return multiplier;
+}
+
 bool Unit::AddAura(Aura *Aur)
 {
     SpellEntry const* aurSpellInfo = Aur->GetSpellProto();
@@ -3944,34 +3960,27 @@ void Unit::RemoveAurasByCasterSpell(uint32 spellId, uint32 effindex, uint64 cast
     }
 }
 
-void Unit::RemoveAurasDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit *dispeler)
+void Unit::RemoveSingleAuraDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit *dispeler)
 {
-    for (AuraMap::iterator iter = m_Auras.begin(); iter != m_Auras.end(); )
+    SpellEntry const* spellEntry = sSpellStore.LookupEntry(spellId);
+
+    // Custom dispel case
+    // Unstable Affliction
+    if(spellEntry->SpellFamilyName == SPELLFAMILY_WARLOCK && (spellEntry->SpellFamilyFlags & UI64LIT(0x010000000000)))
     {
-        Aura *aur = iter->second;
-        if (aur->GetId() == spellId && aur->GetCasterGUID() == casterGUID)
+        if (Aura* dotAura = GetAura(SPELL_AURA_PERIODIC_DAMAGE,SPELLFAMILY_WARLOCK,UI64LIT(0x010000000000),0x00000000,casterGUID))
         {
-            // Custom dispel case
-            // Unstable Affliction
-            if (aur->GetSpellProto()->SpellFamilyName == SPELLFAMILY_WARLOCK && (aur->GetSpellProto()->SpellFamilyFlags & UI64LIT(0x010000000000)))
-            {
-                int32 damage = aur->GetModifier()->m_amount*9;
-                uint64 caster_guid = aur->GetCasterGUID();
+            int32 damage = dotAura->GetModifier()->m_amount*9;
 
-                // Remove aura
-                RemoveAura(iter, AURA_REMOVE_BY_DISPEL);
+            // Remove spell auras from stack
+            RemoveSingleSpellAurasByCasterSpell(spellId, casterGUID, AURA_REMOVE_BY_DISPEL);
 
-                // backfire damage and silence
-                dispeler->CastCustomSpell(dispeler, 31117, &damage, NULL, NULL, true, NULL, NULL,caster_guid);
-
-                iter = m_Auras.begin();                     // iterator can be invalidate at cast if self-dispel
-            }
-            else
-                RemoveAura(iter, AURA_REMOVE_BY_DISPEL);
+            // backfire damage and silence
+            dispeler->CastCustomSpell(dispeler, 31117, &damage, NULL, NULL, true, NULL, NULL,casterGUID);
         }
-        else
-            ++iter;
     }
+    else
+        RemoveSingleSpellAurasByCasterSpell(spellId, casterGUID, AURA_REMOVE_BY_DISPEL);
 }
 
 void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, uint64 casterGUID, Unit *stealer)
@@ -4041,21 +4050,46 @@ void Unit::RemoveAurasWithDispelType( DispelType type )
     }
 }
 
-void Unit::RemoveSingleAuraFromStack(uint32 spellId, uint32 effindex)
+void Unit::RemoveSingleAuraFromStack(AuraMap::iterator &i, AuraRemoveMode mode)
+{
+    if (i->second->modStackAmount(-1))
+        RemoveAura(i,mode);
+}
+
+
+void Unit::RemoveSingleAuraFromStack(uint32 spellId, uint32 effindex, AuraRemoveMode mode)
 {
     AuraMap::iterator iter = m_Auras.find(spellEffectPair(spellId, effindex));
     if(iter != m_Auras.end())
+        RemoveSingleAuraFromStack(iter,mode);
+}
+
+void Unit::RemoveSingleSpellAurasFromStack(uint32 spellId, AuraRemoveMode mode)
+{
+    for (int i=0; i<3; ++i)
+        RemoveSingleAuraFromStack(spellId, i, mode);
+}
+
+void Unit::RemoveSingleSpellAurasByCasterSpell(uint32 spellId, uint64 casterGUID, AuraRemoveMode mode)
+{
+    for (int i=0; i<3; ++i)
+        RemoveSingleAuraByCasterSpell(spellId, i, casterGUID, mode);
+}
+
+void Unit::RemoveSingleAuraByCasterSpell(uint32 spellId, uint32 effindex, uint64 casterGUID, AuraRemoveMode mode)
+{
+    spellEffectPair spair = spellEffectPair(spellId, effindex);
+    for(AuraMap::iterator iter = m_Auras.lower_bound(spair); iter != m_Auras.upper_bound(spair); ++iter)
     {
-        if (iter->second->modStackAmount(-1))
-            RemoveAura(iter);
+        Aura *aur = iter->second;
+        if (aur->GetId() == spellId && aur->GetCasterGUID() == casterGUID)
+        {
+            RemoveSingleAuraFromStack(iter,mode);
+            break;
+        }
     }
 }
 
-void Unit::RemoveSingleSpellAurasFromStack(uint32 spellId)
-{
-    for (int i=0; i<3; ++i)
-        RemoveSingleAuraFromStack(spellId, i);
-}
 
 void Unit::RemoveAurasDueToSpell(uint32 spellId, Aura* except)
 {
@@ -4878,6 +4912,10 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     triggered_spell_id = 26654;
                     break;
                 }
+                // Twisted Reflection (boss spell)
+                case 21063:
+                    triggered_spell_id = 21064;
+                    break;
                 // Unstable Power
                 case 24658:
                 {
@@ -4968,6 +5006,30 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     triggered_spell_id = 34650;
                     break;
                 }
+                // Divine purpose
+                case 31871:
+                case 31872:
+                {
+                    // Roll chane
+                    if (!roll_chance_i(triggerAmount))
+                        return false;
+
+                    // Remove any stun effect on target
+                    AuraMap& Auras = pVictim->GetAuras();
+                    for(AuraMap::const_iterator iter = Auras.begin(); iter != Auras.end();)
+                    {
+                        SpellEntry const *spell = iter->second->GetSpellProto();
+                        if( spell->Mechanic == MECHANIC_STUN ||
+                            spell->EffectMechanic[iter->second->GetEffIndex()] == MECHANIC_STUN)
+                        {
+                            pVictim->RemoveAurasDueToSpell(spell->Id);
+                            iter = Auras.begin();
+                        }
+                        else
+                            ++iter;
+                    }
+                    return true;
+                }
                 // Mark of Malice
                 case 33493:
                 {
@@ -4979,10 +5041,6 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     triggered_spell_id = 33494;
                     break;
                 }
-                // Twisted Reflection (boss spell)
-                case 21063:
-                    triggered_spell_id = 21064;
-                    break;
                 // Vampiric Aura (boss spell)
                 case 38196:
                 {
@@ -5052,12 +5110,6 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                         ((Player*)this)->Say("This is Madness!", LANG_UNIVERSAL);
                     break;
                 }
-                /*
-                // Sunwell Exalted Caster Neck (??? neck)
-                // cast ??? Light's Wrath if Exalted by Aldor
-                // cast ??? Arcane Bolt if Exalted by Scryers*/
-                case 46569:
-                    return false;                           // old unused version
                 // Sunwell Exalted Caster Neck (Shattered Sun Pendant of Acumen neck)
                 // cast 45479 Light's Wrath if Exalted by Aldor
                 // cast 45429 Arcane Bolt if Exalted by Scryers
@@ -5166,6 +5218,12 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     }
                     return false;
                 }
+                /*
+                // Sunwell Exalted Caster Neck (??? neck)
+                // cast ??? Light's Wrath if Exalted by Aldor
+                // cast ??? Arcane Bolt if Exalted by Scryers*/
+                case 46569:
+                    return false;                           // old unused version
                 // Living Seed
                 case 48504:
                 {
@@ -5183,28 +5241,15 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     target = this;
                     break;
                 }
-                // Divine purpose
-                case 31871:
-                case 31872:
+                // Shadowfiend Death (Gain mana if pet dies with Glyph of Shadowfiend)
+                case 57989:
                 {
-                    // Roll chane
-                    if (!roll_chance_i(triggerAmount))
+                    Unit *owner = GetOwner();
+                    if (!owner || owner->GetTypeId() != TYPEID_PLAYER)
                         return false;
 
-                    // Remove any stun effect on target
-                    AuraMap& Auras = pVictim->GetAuras();
-                    for(AuraMap::const_iterator iter = Auras.begin(); iter != Auras.end();)
-                    {
-                        SpellEntry const *spell = iter->second->GetSpellProto();
-                        if( spell->Mechanic == MECHANIC_STUN ||
-                            spell->EffectMechanic[iter->second->GetEffIndex()] == MECHANIC_STUN)
-                        {
-                            pVictim->RemoveAurasDueToSpell(spell->Id);
-                            iter = Auras.begin();
-                        }
-                        else
-                            ++iter;
-                    }
+                    // Glyph of Shadowfiend (need cast as self cast for owner, no hidden cooldown)
+                    owner->CastSpell(owner,58227,true,castItem,triggeredByAura);
                     return true;
                 }
             }
@@ -5658,71 +5703,104 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 return true;                                // no hidden cooldown
             }
 
-            // Divine Aegis
-            if (dummySpell->SpellIconID == 2820)
+            switch(dummySpell->SpellIconID)
             {
-                basepoints0 = damage * triggerAmount/100;
-                triggered_spell_id = 47753;
-                break;
-            }
-            // Improved Shadowform
-            else if (dummySpell->SpellIconID == 217)
-            {
-                if(!roll_chance_i(triggerAmount))
-                    return false;
-
-                RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT);
-                RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
-                break;
-            }
-            // Rapture (Ranks 1-3)
-            else if (dummySpell->SpellIconID == 2894)
-            {
-                switch(effIndex)
+                // Improved Shadowform
+                case 217:
                 {
-                    case 0:
-                    {
-                        // energize caster
-                        int32 manapct1000 = 5 * (triggerAmount + sSpellMgr.GetSpellRank(dummySpell->Id));
-                        int32 basepoints0 = this->GetMaxPower(POWER_MANA) * manapct1000 / 1000;
-                        CastCustomSpell(this, 47755, &basepoints0, NULL, NULL, true);
-                        break;
-                    }
-                    case 1:
-                    {
-                        // energize target
-                       if (!roll_chance_i(triggerAmount) || this->HasAura(63853))
-                           break;
+                    if(!roll_chance_i(triggerAmount))
+                        return false;
 
-                       switch(pVictim->getPowerType())
-                       {
-                            case POWER_RUNIC_POWER:
-                                pVictim->CastSpell(pVictim, 63652, true, NULL, triggeredByAura);
-                                break;
-                            case POWER_RAGE:
-                                pVictim->CastSpell(pVictim, 63653, true, NULL, triggeredByAura);
-                                break;
-                            case POWER_MANA:
-                            {
-                                int32 basepoints0 = pVictim->GetMaxPower(POWER_MANA) * 2 / 100;
-                                pVictim->CastCustomSpell(pVictim, 63654, &basepoints0, NULL, NULL, true, NULL, triggeredByAura);
-                                break;
-                            }
-                            case POWER_ENERGY:
-                                pVictim->CastSpell(pVictim, 63655, true, NULL, triggeredByAura);
-                                break;
-                            default:
-                                break;
-                       }
-                       //cooldown aura
-                       this->CastSpell(this, 63853, true);
-                       break;
-                    }
-                    default:
-                        sLog.outError("Changes in R-dummy spell???: effect 3");
-                        break;
+                    RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT);
+                    RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
+                    break;
                 }
-                return true;
+                // Divine Aegis
+                case 2820:
+                {
+                    basepoints0 = damage * triggerAmount/100;
+                    triggered_spell_id = 47753;
+                    break;
+                }
+                // Empowered Renew
+                case 3021:
+                {
+                    if (!procSpell)
+                        return false;
+
+                    Aura* healingAura = pVictim->GetAura(procSpell->Id,0);
+                    if (!healingAura)
+                        return false;
+
+                    int32 healingfromticks = SpellHealingBonus(pVictim, procSpell, (healingAura->GetModifier()->m_amount* GetSpellAuraMaxTicks(procSpell)), DOT);
+                    basepoints0 = healingfromticks * triggerAmount / 100;
+                    triggered_spell_id = 63544;
+                    break;
+                }
+                // Improved Devouring Plague
+                case 3790:
+                {
+                    if (!procSpell)
+                        return false;
+
+                    Aura* leachAura = pVictim->GetAura(procSpell->Id,0);
+                    if (!leachAura)
+                        return false;
+
+                    int32 damagefromticks = SpellDamageBonus(pVictim, procSpell, (leachAura->GetModifier()->m_amount* GetSpellAuraMaxTicks(procSpell)), DOT);
+                    basepoints0 = damagefromticks * triggerAmount / 100;
+                    triggered_spell_id = 63675;
+                    break;
+                }
+                // Rapture (Ranks 1-3)
+                case 2894:
+                {
+                    switch(effIndex)
+                    {
+                        case 0:
+                        {
+                            // energize caster
+                            int32 manapct1000 = 5 * (triggerAmount + sSpellMgr.GetSpellRank(dummySpell->Id));
+                            int32 basepoints0 = this->GetMaxPower(POWER_MANA) * manapct1000 / 1000;
+                            CastCustomSpell(this, 47755, &basepoints0, NULL, NULL, true);
+                            break;
+                        }
+                        case 1:
+                        {
+                            // energize target
+                           if (!roll_chance_i(triggerAmount) || this->HasAura(63853))
+                               break;
+
+                           switch(pVictim->getPowerType())
+                           {
+                                case POWER_RUNIC_POWER:
+                                    pVictim->CastSpell(pVictim, 63652, true, NULL, triggeredByAura);
+                                    break;
+                                case POWER_RAGE:
+                                    pVictim->CastSpell(pVictim, 63653, true, NULL, triggeredByAura);
+                                    break;
+                                case POWER_MANA:
+                                {
+                                    int32 basepoints0 = pVictim->GetMaxPower(POWER_MANA) * 2 / 100;
+                                    pVictim->CastCustomSpell(pVictim, 63654, &basepoints0, NULL, NULL, true, NULL, triggeredByAura);
+                                    break;
+                                }
+                                case POWER_ENERGY:
+                                    pVictim->CastSpell(pVictim, 63655, true, NULL, triggeredByAura);
+                                    break;
+                                default:
+                                    break;
+                           }
+                           //cooldown aura
+                           this->CastSpell(this, 63853, true);
+                           break;
+                        }
+                        default:
+                            sLog.outError("Changes in R-dummy spell???: effect 3");
+                            break;
+                    }
+                    break;
+                }
             }
 
             switch(dummySpell->Id)
@@ -5994,20 +6072,6 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     triggered_spell_id = 32747;
                     break;
                 }
-                // Tricks of the Trade
-                case 57934:
-                {
-                    if (this->GetTypeId() != TYPEID_PLAYER)
-                        return false;
-
-                    RedirectThreatEntry* entry = this->GetRedirectThreatEntry(57934);
-                    if (!entry)
-                        return false;
-
-                    triggered_spell_id = 59628;
-                    target = entry->m_redirectTo;
-                    break;
-                }
             }
             // Cut to the Chase
             if (dummySpell->SpellIconID == 2909)
@@ -6119,6 +6183,19 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 int32 holy = SpellBaseDamageBonus(SPELL_SCHOOL_MASK_HOLY) +
                              SpellBaseDamageBonusForVictim(SPELL_SCHOOL_MASK_HOLY, pVictim);
                 basepoints0 = GetAttackTime(BASE_ATTACK) * int32(ap*0.022f + 0.044f * holy) / 1000;
+                break;
+            }
+            // Sacred Shield proc Flash of Light HoT
+            if ( dummySpell->Id == 58597 )
+            {
+                Unit* caster = triggeredByAura->GetCaster();
+
+                if (caster && pVictim && caster->GetGUID() == pVictim->GetGUID())
+                {
+                    triggered_spell_id = 66922;
+                    basepoints0 = int32( damage / 12 );
+                    target = this;
+                }
                 break;
             }
             // Sacred Shield
@@ -7498,8 +7575,18 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
                             return false;
                     }
                 }
-                //else if (auraSpellInfo->Id==40363)// Entangling Roots ()
-                //    trigger_spell_id = ????;
+                // Druid T9 Feral Relic (Lacerate, Swipe, Mangle, and Shred)
+                else if (auraSpellInfo->Id==67353)
+                {
+                    switch(m_form)
+                    {
+                        case FORM_CAT:      trigger_spell_id = 67355; break;
+                        case FORM_BEAR:
+                        case FORM_DIREBEAR: trigger_spell_id = 67354; break;
+                        default:
+                            return false;
+                    }
+                }
                 break;
             }
             case SPELLFAMILY_HUNTER:
@@ -9345,15 +9432,7 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
     }
 
     // Mod damage from spell mechanic
-    if (uint32 mechanicMask = GetAllSpellMechanicMask(spellProto))
-    {
-        AuraList const& mDamageDoneMechanic = pVictim->GetAurasByType(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT);
-        for(AuraList::const_iterator i = mDamageDoneMechanic.begin();i != mDamageDoneMechanic.end(); ++i)
-        {
-            if (mechanicMask & uint32(1 << ((*i)->GetModifier()->m_miscvalue)))
-                TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
-        }
-    }
+    TakenTotalMod *= pVictim->GetTotalAuraMultiplierByMiscValueForMask(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT,GetAllSpellMechanicMask(spellProto));
 
     // Mod damage taken from AoE spells
     if(IsAreaOfEffectSpell(spellProto))
@@ -9618,6 +9697,7 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                         // Lava Burst
                         if (spellProto->SpellFamilyFlags & UI64LIT(0x0000100000000000))
                         {
+                            // Flame Shock 
                             if (Aura *flameShock = pVictim->GetAura(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_SHAMAN, UI64LIT(0x0000000010000000), 0, GetGUID()))
                                 return true;
                         }
@@ -10025,10 +10105,6 @@ bool Unit::IsImmunedToSpell(SpellEntry const* spellInfo)
     //TODO add spellEffect immunity checks!, player with flag in bg is imune to imunity buffs from other friendly players!
     //SpellImmuneList const& dispelList = m_spellImmune[IMMUNITY_EFFECT];
 
-    // Priest's Mass Dispel can not be immuned (but can be resisted)
-    if (spellInfo->SpellFamilyName == SPELLFAMILY_PRIEST && spellInfo->SpellFamilyFlags == UI64LIT(0x8000000000))
-        return false;
-
     // Warrior's Shattering Throw can not be immuned
     if (spellInfo->Id == 64382 || spellInfo->Id == 64380)
         return false;
@@ -10060,11 +10136,6 @@ bool Unit::IsImmunedToSpell(SpellEntry const* spellInfo)
             if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
                 return true;
     }
-
-    SpellImmuneList const& damageList = m_spellImmune[IMMUNITY_DAMAGE];
-    for (SpellImmuneList::const_iterator itr = damageList.begin(); itr != damageList.end(); ++itr)
-        if(itr->type & GetSpellSchoolMask(spellInfo))
-            return true;
 
     return false;
 }
@@ -10232,7 +10303,7 @@ uint32 Unit::MeleeDamageBonus(Unit *pVictim, uint32 pdamage,WeaponAttackType att
     TakenPercent *= pVictim->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
 
     // ..taken pct (by mechanic mask)
-    TakenPercent *= pVictim->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT, mechanicMask);
+    TakenPercent *= pVictim->GetTotalAuraMultiplierByMiscValueForMask(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT,mechanicMask);
 
     // ..taken pct (melee/ranged)
     if(attType == RANGED_ATTACK)
@@ -11318,11 +11389,7 @@ void Unit::AddThreat(Unit* pVictim, float threat /*= 0.0f*/, bool crit /*= false
 {
     // Only mobs can manage threat lists
     if(CanHaveThreatList())
-    {
-        float remainThreatPct = AddThreatToRedirectionTargets(pVictim,threat,crit,schoolMask,threatSpell);
-        if (remainThreatPct > 0)
-            m_ThreatManager.addThreat(pVictim, threat * remainThreatPct, crit, schoolMask, threatSpell);
-    }
+        m_ThreatManager.addThreat(pVictim, threat, crit, schoolMask, threatSpell);
 }
 
 //======================================================================
@@ -11476,75 +11543,6 @@ bool Unit::SelectHostileTarget()
 
 //======================================================================
 //======================================================================
-//======================================================================
-
-RedirectThreatMap* Unit::GetRedirectThreatMap()
-{
-    if (GetTypeId() == TYPEID_PLAYER)
-        return ((Player*)this)->getRedirectThreatMap();
-    else if (((Creature*)this)->isPet())
-        return ((Pet*)this)->getRedirectThreatMap();
-
-    return NULL;
-}
-
-void Unit::AddRedirectThreatEntry(Unit* redirectTo, uint32 spellId, float redirectPct)
-{
-    if (RedirectThreatMap* map = GetRedirectThreatMap())
-    {
-        RedirectThreatEntry* entry = new RedirectThreatEntry(redirectTo,redirectPct);
-        map->insert(std::pair<uint32,RedirectThreatEntry*>(spellId,entry));
-    }
-}
-
-void Unit::RemoveRedirectThreatEntry(uint32 spellId)
-{
-    RedirectThreatMap* map = GetRedirectThreatMap();
-    if (map)
-    {
-        RedirectThreatEntry* entry = GetRedirectThreatEntry(map,spellId);
-        if (entry)
-        {
-            delete entry;
-            map->erase(spellId);
-        }
-    }
-}
-
-RedirectThreatEntry* Unit::GetRedirectThreatEntry(uint32 spellId)
-{
-    RedirectThreatMap* map = GetRedirectThreatMap();
-    return GetRedirectThreatEntry(map,spellId);
-}
-
-RedirectThreatEntry* Unit::GetRedirectThreatEntry(RedirectThreatMap* map, uint32 spellId)
-{
-    RedirectThreatMap::iterator iter = map->find(spellId);
-    if (iter != map->end())
-        return iter->second;
-
-    return NULL;
-}
-
-float Unit::AddThreatToRedirectionTargets(Unit* pVictim, float threat, bool crit, SpellSchoolMask schoolMask, SpellEntry const *threatSpell)
-{
-    float remainThreatPct = 1.0f;
-
-    if(!pVictim)
-        return 1.0f;
-
-    // Now let's see if threat generated by pVictim must be redirected
-    RedirectThreatMap* map = pVictim->GetRedirectThreatMap();
-    if (map && !map->empty())
-        for (RedirectThreatMap::iterator iter = map->begin(); iter != map->end(); ++iter)
-        {
-            m_ThreatManager.addThreat(iter->second->m_redirectTo, threat * (iter->second->m_redirectPct), crit, schoolMask, threatSpell);
-            remainThreatPct -= iter->second->m_redirectPct;
-        }
-
-    return remainThreatPct;
-}
-
 //======================================================================
 
 int32 Unit::CalculateSpellDamage(SpellEntry const* spellProto, uint8 effect_index, int32 effBasePoints, Unit const* target)

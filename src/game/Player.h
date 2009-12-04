@@ -583,6 +583,25 @@ enum QuestSlotStateMask
     QUEST_STATE_FAIL     = 0x0002
 };
 
+enum SkillUpdateState
+{
+    SKILL_UNCHANGED     = 0,
+    SKILL_CHANGED       = 1,
+    SKILL_NEW           = 2,
+    SKILL_DELETED       = 3
+};
+
+struct SkillStatusData
+{
+    SkillStatusData(uint8 _pos, SkillUpdateState _uState) : pos(_pos), uState(_uState)
+    {
+    }
+    uint8 pos;
+    SkillUpdateState uState;
+};
+
+typedef UNORDERED_MAP<uint32, SkillStatusData> SkillStatusMap;
+
 class Quest;
 class Spell;
 class Item;
@@ -914,9 +933,14 @@ enum PlayerLoginQueryIndex
     PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS        = 20,
     PLAYER_LOGIN_QUERY_LOADBGDATA               = 21,
     PLAYER_LOGIN_QUERY_LOADACCOUNTDATA          = 22,
+<<<<<<< HEAD:src/game/Player.h
     PLAYER_LOGIN_QUERY_LOADGLYPHS               = 23,
     PLAYER_LOGIN_QUERY_LOADTALENTS              = 24,
     MAX_PLAYER_LOGIN_QUERY                      = 25
+=======
+    PLAYER_LOGIN_QUERY_LOADSKILLS               = 23,
+    MAX_PLAYER_LOGIN_QUERY                      = 24
+>>>>>>> 304a27f31e3620bdd6ca50645d4998e98be89b22:src/game/Player.h
 };
 
 enum PlayerDelayedOperations
@@ -1185,8 +1209,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         static bool IsBagPos( uint16 pos );
         static bool IsBankPos( uint16 pos ) { return IsBankPos(pos >> 8, pos & 255); }
         static bool IsBankPos( uint8 bag, uint8 slot );
-        bool IsValidPos( uint16 pos ) { return IsBankPos(pos >> 8, pos & 255); }
-        bool IsValidPos( uint8 bag, uint8 slot );
+        bool IsValidPos( uint16 pos, bool explicit_pos ) { return IsValidPos(pos >> 8, pos & 255, explicit_pos); }
+        bool IsValidPos( uint8 bag, uint8 slot, bool explicit_pos );
         uint8 GetBankBagSlotCount() const { return GetByteValue(PLAYER_BYTES_2, 2); }
         void SetBankBagSlotCount(uint8 count) { SetByteValue(PLAYER_BYTES_2, 2, count); }
         bool HasItemCount( uint32 item, uint32 count, bool inBankAlso = false ) const;
@@ -1306,6 +1330,19 @@ class MANGOS_DLL_SPEC Player : public Unit
         void LoadPet();
 
         uint32 m_stableSlots;
+
+        /*********************************************************/
+        /***                    GOSSIP SYSTEM                  ***/
+        /*********************************************************/
+
+        void PrepareGossipMenu(WorldObject *pSource, uint32 gossipid = 0);
+        void SendPreparedGossip(WorldObject *pSource);
+        void OnGossipSelect(WorldObject *pSource, uint32 option);
+        void OnPoiSelect(WorldObject *pSource, GossipOption const *gossip);
+
+        uint32 GetGossipTextId(uint32 action, uint32 zoneid);
+        uint32 GetGossipTextId(WorldObject *pSource);
+        GossipOption const* GetGossipOption(WorldObject *pSource, uint32 id) const;
 
         /*********************************************************/
         /***                    QUEST SYSTEM                   ***/
@@ -2140,8 +2177,6 @@ class MANGOS_DLL_SPEC Player : public Unit
         }
         void HandleFall(MovementInfo const& movementInfo);
 
-        RedirectThreatMap* getRedirectThreatMap() { return &m_redirectMap; }
-
         void BuildTeleportAckMsg( WorldPacket *data, float x, float y, float z, float ang) const;
 
         bool isMoving() const { return m_movementInfo.HasMovementFlag(movementFlagsMask); }
@@ -2359,7 +2394,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void _LoadQuestStatus(QueryResult *result);
         void _LoadDailyQuestStatus(QueryResult *result);
         void _LoadGroup(QueryResult *result);
-        void _LoadSkills();
+        void _LoadSkills(QueryResult *result);
         void _LoadSpells(QueryResult *result);
         void _LoadFriendList(QueryResult *result);
         bool _LoadHomeBind(QueryResult *result);
@@ -2380,6 +2415,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void _SaveMail();
         void _SaveQuestStatus();
         void _SaveDailyQuestStatus();
+        void _SaveSkills();
         void _SaveSpells();
         void _SaveEquipmentSets();
         void _SaveBGData();
@@ -2428,6 +2464,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         int8 m_comboPoints;
 
         QuestStatusMap mQuestStatus;
+
+        SkillStatusMap mSkillStatus;
 
         uint32 m_GuildIdInvited;
         uint32 m_ArenaTeamIdInvited;
@@ -2602,9 +2640,6 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         AchievementMgr m_achievementMgr;
         ReputationMgr  m_reputationMgr;
-
-        // Map used to control threat redirection effects
-        RedirectThreatMap m_redirectMap;
 };
 
 void AddItemsSetItem(Player*player,Item *item);

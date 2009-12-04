@@ -452,12 +452,6 @@ bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
 
     switch(spellproto->Effect[effIndex])
     {
-        // consider dispel as always negative effect (explicit check will be performed later)
-        case SPELL_EFFECT_DISPEL:
-            // This should be replaced by other check like "if (!(m_caster->isFriendlyTo(m_target)))"
-            if (spellproto->Id != 4987)
-                return false;
-            break;
         case SPELL_EFFECT_DUMMY:
             // some explicitly required dummy effect sets
             switch(spellId)
@@ -1630,6 +1624,10 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 //  Tree of Life (Shapeshift) and 34123 Tree of Life (Passive)
                 if ((spellId_1 == 33891 && spellId_2 == 34123) ||
                     (spellId_2 == 33891 && spellId_1 == 34123))
+                    return false;
+
+                //  Innervate and Glyph of Innervate and some other spells
+                if (spellInfo_1->SpellIconID == 62 && spellInfo_2->SpellIconID == 62)
                     return false;
 
                 // Wrath of Elune and Nature's Grace

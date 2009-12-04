@@ -221,7 +221,9 @@ class Pet : public Creature
         time_t  m_resetTalentsTime;
         uint32  m_usedTalentCount;
 
-        RedirectThreatMap* getRedirectThreatMap() { return &m_redirectMap; }
+        const uint64& GetAuraUpdateMask() const { return m_auraUpdateMask; }
+        void SetAuraUpdateMask(uint8 slot) { m_auraUpdateMask |= (uint64(1) << slot); }
+        void ResetAuraUpdateMask() { m_auraUpdateMask = 0; }
 
         // overwrite Creature function for name localization back to WorldObject version without localization
         const char* GetNameForLocaleIdx(int32 locale_idx) const { return WorldObject::GetNameForLocaleIdx(locale_idx); }
@@ -247,8 +249,5 @@ class Pet : public Creature
         {
             assert(false);
         }
-
-        // Map used to control threat redirection effects
-        RedirectThreatMap m_redirectMap;
 };
 #endif

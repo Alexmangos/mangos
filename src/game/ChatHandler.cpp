@@ -323,7 +323,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             if(msg.empty())
                 break;
 
-            sChatLog.GuildMsg(GetPlayer(), msg, true); 
+            sChatLog.GuildMsg(GetPlayer(), msg, true);
 
             if (GetPlayer()->GetGuildId())
             {

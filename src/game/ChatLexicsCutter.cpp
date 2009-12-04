@@ -18,6 +18,7 @@
 
 #include "Common.h"
 #include "ChatLexicsCutter.h"
+#include "Log.h"
 
 LexicsCutter::LexicsCutter()
 {
@@ -57,6 +58,12 @@ bool LexicsCutter::Read_Letter_Analogs(std::string& FileName)
     std::string lanalog;
 
     ma_file = fopen(FileName.c_str(), "rb");
+
+    if (!ma_file)
+    {
+        sLog.outError("Chat lexics cutter disabled. Reason: LexicsCutterAnalogsFile file does not exist in the server directory.");
+        return false;
+    }
 
     while (!feof(ma_file))
     {
@@ -115,6 +122,12 @@ bool LexicsCutter::Read_Innormative_Words(std::string& FileName)
     std::string lchar;
 
     ma_file = fopen(FileName.c_str(), "rb");
+
+    if (!ma_file)
+    {
+        sLog.outError("Chat lexics cutter disabled. Reason: LexicsCutterWordsFile file does not exist in the server directory.");
+        return false;
+    }
 
     while (!feof(ma_file))
     {
